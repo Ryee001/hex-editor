@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hex Editor</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 20px;
+        }
+
+        label {
+            margin-top: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 10px;
+        }
+
+        .hex-editor {
+            display: grid;
+            grid-template-columns: repeat(17, 30px);
+            grid-gap: 2px;
+            margin-bottom: 20px;
+            opacity: 0;
+            animation: fadeIn 0.5s ease-in-out forwards;
+        }
+
+        .hex-cell, .ascii-cell {
+            width: 28px;
+            height: 28px;
+            text-align: center;
+            line-height: 28px;
+            border: 1px solid #ccc;
+            display: inline-block;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .ascii-cell:empty {
+            visibility: hidden;
+        }
+
+        .selected {
+            background-color: #007BFF !important;
+            color: white !important;
+        }
+
+        .editable {
+            outline: 2px solid #007BFF;
+            outline-offset: -2px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            text-decoration: none;
+            color: #fff;
+            background-color: #007BFF;
+            border: 1px solid #007BFF;
+            border-radius: 4px;
+            transition: background-color 0.3s, transform 0.2s ease-out;
+            margin-right: 10px;
+        }
+
+        .button:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+            transform: scale(1.05);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .range-highlight {
+            background-color: #cce5ff;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Hex Editor</h1>
+
+    <label for="fileInput">Import Hex File:</label>
+    <input type="file" id="fileInput" accept=".hex">
+
+    <label for="hexInput">Enter Hexadecimal Data:</label>
+    <textarea id="hexInput" placeholder="Enter hexadecimal data here..."></textarea>
+
+    <h2>Hexadecimal and ASCII Representation:</h2>
+    <div id="hexOutput" class="hex-editor"></div>
+
+    <button class="button" id="saveButton">Save</button>
+    <button class="button" id="downloadButton">Download</button>
+
+    <script>
+        function updateHexOutput(hexData, selectedIndex, selectedRange) {
+            const hexOutput = document.getElementById('hexOutput');
+
+            // Clear previous content
+            hexOutput.innerHTML = '';
+
+            // Display the hexadecimal data in a grid
+            for (let i = 0; i < hexData.length; i++) {
+                const hexCell = document.createElement('div');
+                hexCell.classList.add('hex-cell');
+                hexCell.textContent = hexData[i];
+                hexCell.dataset.index = i;
+                hexOutput.appendChild(hexCell);
+
+                if (i === selectedIndex) {
+                    hexCell.classList.add('selected');
+                }
+
+                if (selectedRange && i >= selectedRange.start && i <= selectedRange.end) {
+                    hexCell.classList.add('range-highlight');
+                }
+
+                if ((i + 1) % 16 === 0) {
+                    hexOutput.appendChild(document.createElement('br'));
+                }
+            }
+
+            // Display the ASCII representation
+            for (let i = 0; i < hexData.length; i++) {
+                const asciiCell = document.createElement('div');
+                asciiCell.classList.add('ascii-cell');
+                asciiCell.textContent = String.fromCharCode(parseInt(hexData[i], 16)) || '.';
+                hexOutput.appendChild(asciiCell);
+            }
+
+            // Add click event listener for editing hex values
+            hexOutput.addEventListener('click', function (event) {
+                const target = event.target;
+
+                if (target.classList.contains('hex-cell')) {
+                    const selectedIndex = parseInt(target.dataset.index);
+                    updateHexOutput(hexData, selectedIndex, selectedRange);
+                }
+            });
+        }
+
+        function updateHexInput() {
+            const hexCells = document.querySelectorAll('.hex-cell');
+            let hexData = '';
+
+            hexCells.forEach(function (cell) {
+                hexData += cell.textContent;
+            });
+
+            document.getElementById('hexInput').value = hexData;
+        }
+
+        document.getElementById('fileInput').addEventListener('change', function (event) {
+            const fileInput = event.target;
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const hexData = e.target.result.replace(/\s/g, '');
+                    document.getElementById('hexInput').value = hexData;
+                    updateHexOutput(hexData, -1, null);
+                };
+
+                reader.readAsText(file);
+            }
+        });
+
+        // Attach the updateHexOutput function to the input event of the textarea
+        document.getElementById('hexInput').addEventListener('input', function () {
+            const hexData = document.getElementById('hexInput').value.replace(/\s/g, '');
+            updateHexOutput(hexData, -1, null);
+        });
+
+        document.getElementById('saveButton').addEventListener('click', function () {
+            const hexData = document.getElementById('hexInput').value;
+            localStorage.setItem('savedHexData', hexData);
+            alert('Hex data saved successfully!');
+        });
+
+        document.getElementById('downloadButton').addEventListener('click', function () {
+            const hexData = localStorage.getItem('savedHexData');
+
+            if (hexData) {
+                const blob = new Blob([hexData], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'saved_hex_data.hex';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } else {
+                alert('No saved hex data found.');
+            }
+        });
+    </script>
+
+</body>
+</html>
